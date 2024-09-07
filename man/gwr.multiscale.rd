@@ -26,7 +26,7 @@ gwr.multiscale(formula, data, kernel = "bisquare", adaptive = FALSE,
 
 \arguments{
   \item{formula}{Regression model formula of a \link{formula} object }
-  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}}
+  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}, or a sf object defined in package \pkg{sf}}
   \item{kernel}{function chosen as follows:
   
                 gaussian: wgt = exp(-.5*(vdist/bw)^2);
@@ -73,8 +73,10 @@ gwr.multiscale(formula, data, kernel = "bisquare", adaptive = FALSE,
 }
 \value{
 A list of class \dQuote{psdmgwr}:
- \item{SDF}{a SpatialPointsDataFrame (may be gridded) or 
-             SpatialPolygonsDataFrame object (see package \dQuote{sp}) integrated with data locations,coefficient estimates from the PSDM GWR model,predicted y values,residuals, coefficient standard errors and t-values in its "data" slot.}
+ \item{SDF}{a SpatialPointsDataFrame (may be gridded), or 
+             SpatialPolygonsDataFrame object (see package \dQuote{sp}), or sf object  (see package \dQuote{sf}) 
+             integrated with data locations,coefficient estimates from the PSDM GWR model,predicted y values,residuals,
+              coefficient standard errors and t-values in its "data" slot.}
   \item{GW.arguments}{a list class object including the model fitting parameters for generating the report file}
   \item{GW.diagnostic}{a list class object including the diagnostic information of the model fitting}
   \item{lm}{an object of class inheriting from \dQuote{lm}, see \link{lm}. }

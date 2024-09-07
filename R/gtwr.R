@@ -24,18 +24,26 @@ gtwr<- function(formula, data, regression.points, obs.tv, reg.tv, st.bw, kernel=
   this.call <- match.call()
   p4s <- as.character(NA)
   polygons <- NULL
+  sfdf <- TRUE
   ##Data points{
-  if (is(data, "Spatial"))
+  if (inherits(data, "Spatial"))
   {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
     if(is(data, "SpatialPolygonsDataFrame"))
        polygons <- polygons(data)
     data <- as(data, "data.frame")
+    sfdf <- FALSE
+  }
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
   }
   else
   {
-    stop("Given regression data must be Spatial*DataFrame")
+    stop("Given regression data must be a Spatial*DataFrame or sf object")
   }
   dp.n <- nrow(dp.locat)
   ####Check the time stamps given for the data
@@ -64,20 +72,35 @@ gtwr<- function(formula, data, regression.points, obs.tv, reg.tv, st.bw, kernel=
     rp.locat<-dp.locat
     hatmatrix<-T
     reg.tv <- obs.tv
+    if(sfdf){
+      regression.points <- data
+    }
+    else{
+      if(is.null(polygons))
+         regression.points <- SpatialPointsDataFrame(coords=rp.locat, data=data)
+      else
+        regression.points <-SpatialPolygonsDataFrame(Sr=polygons, data=data,match.ID=F)
+    }
   }
   else 
   {
     rp.given <- TRUE
     hatmatrix<-F
-    if (is(regression.points, "Spatial"))
+     if(inherits(regression.points, "Spatial")) 
     {
       rp.locat<-coordinates(regression.points)
       if (is(regression.points, "SpatialPolygonsDataFrame"))
          polygons<-polygons(regression.points)
     }
+    else if (inherits(regression.points, "sf"))
+    {
+      if (any((st_geometry_type(regression.points)=="POLYGON")) | any(st_geometry_type(regression.points)=="MULTIPOLYGON"))
+         rp.locat <- st_coordinates(st_centroid(st_geometry(regression.points)))
+      else
+         rp.locat<- st_coordinates(st_centroid(st_geometry(regression.points)))
+    }
     else if (is.numeric(regression.points) && dim(regression.points)[2] == 2)
       rp.locat<-regression.points
-    
     else
     {
       warning("Output loactions are not packed in a Spatial object,and it has to be a two-column numeric vector")
@@ -245,17 +268,26 @@ gtwr<- function(formula, data, regression.points, obs.tv, reg.tv, st.bw, kernel=
   }
   rownames(rp.locat)<-rownames(gtwres.df)
   
-
-  if (!is.null(polygons))
+  if(inherits(regression.points, "Spatial")) 
   {
-    rownames(gtwres.df) <- sapply(slot(polygons, "polygons"),
+     if (!is.null(polygons))
+    {
+       rownames(gtwres.df) <- sapply(slot(polygons, "polygons"),
                                   function(i) slot(i, "ID"))
-    SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=gtwres.df,match.ID=F)
+       SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=gtwres.df,match.ID=F)
+    }
+    else
+    {
+      SDF <- SpatialPointsDataFrame(coords=rp.locat, data=gtwres.df, proj4string=CRS(p4s), match.ID=F)
+    }
+  }
+  else if(inherits(regression.points, "sf"))
+  {
+     SDF <- st_sf(gtwres.df, geometry = st_geometry(regression.points))
   }
   else
-  {
-    SDF <- SpatialPointsDataFrame(coords=rp.locat, data=gtwres.df, proj4string=CRS(p4s), match.ID=F)
-  }
+     SDF <- SpatialPointsDataFrame(coords=rp.locat, data=gtwres.df, proj4string=CRS(p4s), match.ID=F)
+  
   timings[["stop"]] <- Sys.time()
   ##############
   res<-list(GTW.arguments=GTW.arguments,GTW.diagnostic=GTW.diagnostic,lm=lm.res,SDF=SDF,
@@ -338,7 +370,10 @@ print.gtwrm<-function(x, ...)
   } 
   
   cat("\n   ****************Summary of GTWR coefficient estimates:*****************\n")       
-  df0 <- as(x$SDF, "data.frame")[,1:var.n, drop=FALSE]
+  if(inherits(x$SDF, "Spatial"))
+       df0 <- as(x$SDF, "data.frame")[,1:var.n, drop=FALSE]
+    else
+       df0 <- st_drop_geometry(x$SDF)[,1:var.n, drop=FALSE]
   if (any(is.na(df0))) {
     df0 <- na.omit(df0)
     warning("NAs in coefficients dropped")

@@ -69,13 +69,21 @@ gwpca <- function (data, elocat, vars, k = 2, robust = FALSE, scaling=T,kernel =
   ##Record the start time
   timings <- list()
   timings[["start"]] <- Sys.time()
-  if (is(data, "Spatial"))
+  spdf <- FALSE
+  if (inherits(data, "Spatial"))
   {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
     polygons <- NULL
     if(is(data, "SpatialPolygonsDataFrame"))
        polygons <- polygons(data)
+    spdf <- TRUE
+  }
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
   }
   else
      stop("Given data must be a Spatial*DataFrame or data.frame object")
@@ -83,15 +91,22 @@ gwpca <- function (data, elocat, vars, k = 2, robust = FALSE, scaling=T,kernel =
   if (missing(elocat))
   {
   	ep.given <- FALSE
-    elocat<-coordinates(data)
+    elocat <- dp.locat
   }
   else 
   {
     ep.given <- T
-    if (is(elocat, "Spatial"))
+    if (inherits(elocat, "Spatial"))
     {
-       espdf<-elocat
+       espdf <- elocat
        elocat<-coordinates(espdf)
+    }
+    else if(inherits(elocat, "sf")) {
+       espdf <- elocat
+       if(any((st_geometry_type(elocat)=="POLYGON")) | any(st_geometry_type(elocat)=="MULTIPOLYGON"))
+          elocat <- st_coordinates(st_centroid(st_geometry(elocat)))
+       else
+          elocat <- st_coordinates(st_geometry(elocat))
     }
     else if (is.numeric(elocat) && dim(elocat)[2] == 2)
        elocat<-elocat
@@ -101,7 +116,8 @@ gwpca <- function (data, elocat, vars, k = 2, robust = FALSE, scaling=T,kernel =
         elocat<-dp.locat
       }
   }
-  data <- as(data, "data.frame")
+  if (inherits(data, "Spatial"))
+      data <- as(data, "data.frame")
   dp.n<-nrow(data)
   ep.n<-nrow(elocat)
   if (missing(dMat))
@@ -214,16 +230,42 @@ gwpca <- function (data, elocat, vars, k = 2, robust = FALSE, scaling=T,kernel =
   win.var.pc1 <- max.col(abs(w[,,1]))
   res.df <- data.frame(local.PV, rowSums(local.PV), vars[win.var.pc1])
   names(res.df) <- c(var.names, "local_CP", "win_var_PC1")
-  if (!is.null(polygons))
+  if(ep.given)
   {
-    rownames(res.df) <- sapply(slot(polygons, "polygons"),
+    if (inherits(espdf, "Spatial"))
+    {
+      if(is(espdf, "SpatialPolygonsDataFrame"))
+      {
+        polygons <- polygons(espdf)
+        rownames(res.df) <- sapply(slot(polygons, "polygons"),
                                   function(i) slot(i, "ID"))
-    SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=res.df,match.ID=F)
+        SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=res.df,match.ID=F)
+      }
+      else
+        SDF <- SpatialPointsDataFrame(coords=elocat, data=res.df, proj4string=CRS(p4s), match.ID=F)  
+    }
+    else if(inherits(espdf, "sf"))
+       SDF <- st_sf(res.df, geometry = st_geometry(espdf))
+    else
+       SDF <- SpatialPointsDataFrame(coords=elocat, data=res.df, proj4string=CRS(p4s), match.ID=F)  
   }
-  else
-  {
-    SDF <- SpatialPointsDataFrame(coords=elocat, data=res.df, proj4string=CRS(p4s), match.ID=F)
+  else{
+    if(spdf){
+       if (!is.null(polygons))
+      {
+          rownames(res.df) <- sapply(slot(polygons, "polygons"),
+                                  function(i) slot(i, "ID"))
+          SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=res.df,match.ID=F)
+      }
+      else
+      {
+         SDF <- SpatialPointsDataFrame(coords=elocat, data=res.df, proj4string=CRS(p4s), match.ID=F)
+      }
+    }
+    else
+      SDF <- st_sf(res.df, geometry = st_geometry(data)) 
   }
+ 
   ################################################
   timings[["stop"]] <- Sys.time()
   res <- list(pca=pca.res,loadings = w, SDF=SDF,gwpca.scores=gwpca.scores, var=d1,  local.PV=local.PV, GW.arguments = GW.arguments, CV = CV, timings=timings)
@@ -316,16 +358,23 @@ print.gwpca<-function(x, ...)
 # Function to find a fixed or adaptive bandwidth 
 bw.gwpca<-function(data,vars,k=2, robust = FALSE, scaling=T, kernel="bisquare",adaptive=FALSE, p=2, theta=0, longlat=F,dMat)
 {
-  if (is(data, "Spatial"))
+  if (inherits(data, "Spatial"))
   {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
+  }
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
   }
   else if (is(data, "data.frame")&&(!missing(dMat)))
      data<-data
   else
      stop("Given data must be a Spatial*DataFrame or data.frame object")
-  data <- as(data, "data.frame")
+  if (inherits(data, "Spatial"))
+      data <- as(data, "data.frame")
   dp.n<-nrow(data)
   if (missing(dMat))
   {

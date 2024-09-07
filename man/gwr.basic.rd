@@ -26,7 +26,7 @@ parallel.method=FALSE,parallel.arg=NULL)
 
 \arguments{
   \item{formula}{Regression model formula of a \link{formula} object }
-  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}}
+  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}, or a sf object defined in package \pkg{sf}}
   \item{regression.points}{a Spatial*DataFrame object, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}; Note that no diagnostic information will returned if it is assigned}
   \item{bw}{bandwidth used in the weighting function, possibly calculated by \link{bw.gwr};fixed (distance) or adaptive bandwidth(number of nearest neighbours)}
   \item{kernel}{function chosen as follows:
@@ -67,8 +67,9 @@ A list of class \dQuote{gwrm}:
   \item{GW.arguments}{a list class object including the model fitting parameters for generating the report file}
   \item{GW.diagnostic}{a list class object including the diagnostic information of the model fitting}
   \item{lm}{an object of class inheriting from \dQuote{lm}, see \link{lm}. }
-  \item{SDF}{a SpatialPointsDataFrame (may be gridded) or 
-             SpatialPolygonsDataFrame object (see package \dQuote{sp}) integrated with fit.points,GWR coefficient estimates, y value,predicted values, coefficient standard errors and t-values in its "data" slot.}
+  \item{SDF}{a SpatialPointsDataFrame (may be gridded), or 
+             SpatialPolygonsDataFrame object (see package \dQuote{sp}), or sf object  (see package \dQuote{sf}) integrated with 
+             regression.points, GWR coefficient estimates, y value,predicted values, coefficient standard errors and t-values in its "data" slot.}
   \item{timings}{starting and ending time.}
   \item{this.call}{the function call used.}
   \item{Ftest.res}{results of Leung's F tests when F123.test is TRUE.}

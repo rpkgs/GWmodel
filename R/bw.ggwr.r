@@ -2,10 +2,20 @@
 #Author: Binbin Lu
 bw.ggwr<-function(formula, data, family ="poisson", approach="CV",kernel="bisquare",adaptive=FALSE, p=2, theta=0, longlat=F,dMat)
 {
-	if (is(data, "Spatial"))
+	 if(inherits(data, "Spatial"))
   {
-    dp.locat<-coordinates(data)
-    data <- as(data, "data.frame")
+    if (is(data, "Spatial"))
+    {
+     dp.locat<-coordinates(data)
+     data <- as(data, "data.frame")
+    }
+  }
+  else if(inherits(data, "sf"))
+  {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+      dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+      dp.locat <- st_coordinates(st_geometry(data))
   }
   else
   {

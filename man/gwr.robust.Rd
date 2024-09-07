@@ -53,9 +53,11 @@ A list of class \dQuote{gwrm}:
   \item{GW.arguments}{a \link{list} class object including the model fitting parameters for generating the report file}
   \item{GW.diagnostic}{a \link{list} class object including the diagnostic information of the model fitting}
   \item{lm}{an object of class inheriting from \dQuote{lm}, see \link{lm}. }
-  \item{SDF}{a SpatialPointsDataFrame (may be gridded) or 
-             SpatialPolygonsDataFrame object (see package \dQuote{sp}) integrated with fit.points,GWR coefficient estimates, y value,predicted values, coefficient standard errors and t-values in its "data" slot. 
-             Notably, E_weigts will be also included in the output SDF which represents the residual weighting when automatic approach is used; When the filtered approach is used, E_weight is a vector consisted of 0 and 1, where 0 means outlier to be excluded from calibration.}
+  \item{SDF}{a SpatialPointsDataFrame (may be gridded), or 
+             SpatialPolygonsDataFrame object (see package \dQuote{sp}), or sf object  (see package \dQuote{sf}) 
+             integrated with fit.points,GWR coefficient estimates, y value,predicted values, coefficient standard errors and t-values in its "data" slot. 
+             Notably, E_weigts will be also included in the output SDF which represents the residual weighting when automatic approach is used; 
+             When the filtered approach is used, E_weight is a vector consisted of 0 and 1, where 0 means outlier to be excluded from calibration.}
   \item{timings}{starting and ending time.}
   \item{this.call}{the function call used.}
   \item{Ftest.res}{results of Leung's F tests when F123.test is TRUE.}

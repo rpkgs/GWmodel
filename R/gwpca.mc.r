@@ -6,13 +6,17 @@ gwpca.montecarlo.1<- function(data, bw, vars, k = 2, nsims=99,robust = FALSE, sc
                   adaptive = FALSE,  p = 2, theta = 0, longlat = F,
                   dMat)
 {
-  if (is(data, "Spatial"))
+  if (inherits(data, "Spatial"))
   {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
   }
-  else if (is(data, "data.frame")&&(!missing(dMat)))
-     data<-data
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
+  }
   else
      stop("Given data must be a Spatial*DataFrame or data.frame object")
   if (missing(dMat))
@@ -43,13 +47,17 @@ gwpca.montecarlo.2 <- function(data, vars, k = 2, nsims=99,robust = FALSE, scali
                   adaptive = FALSE,  p = 2, theta = 0, longlat = F,
                   dMat)
 {
-  if (is(data, "Spatial"))
+  if (inherits(data, "Spatial"))
   {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
   }
-  else if (is(data, "data.frame")&&(!missing(dMat)))
-     data<-data
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
+  }
   else
      stop("Given data must be a Spatial*DataFrame or data.frame object")
   if (missing(dMat))
@@ -96,13 +104,17 @@ montecarlo.gwpca.1<- function(data, bw, vars, k = 2, nsims=99,robust = FALSE, sc
                   adaptive = FALSE,  p = 2, theta = 0, longlat = F,
                   dMat)
 {
-  if (is(data, "Spatial"))
+  if (inherits(data, "Spatial"))
   {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
   }
-  else if (is(data, "data.frame")&&(!missing(dMat)))
-     data<-data
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
+  }
   else
      stop("Given data must be a Spatial*DataFrame or data.frame object")
   if (missing(dMat))
@@ -131,13 +143,17 @@ montecarlo.gwpca.2 <- function(data, vars, k = 2, nsims=99,robust = FALSE, scali
                   adaptive = FALSE,  p = 2, theta = 0, longlat = F,
                   dMat)
 {
-  if (is(data, "Spatial"))
+  if (inherits(data, "Spatial"))
   {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
   }
-  else if (is(data, "data.frame")&&(!missing(dMat)))
-     data<-data
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
+  }
   else
      stop("Given data must be a Spatial*DataFrame or data.frame object")
   if (missing(dMat))

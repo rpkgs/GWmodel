@@ -19,19 +19,43 @@ gwr.mixed <- function(formula, data, regression.points, fixed.vars,intercept.fix
   else 
      hatmatrix <- F
   #####Check the given data frame and regression points
+  ##Data points{
+  if (inherits(data, "Spatial"))
+  {
+    p4s <- proj4string(data)
+    dp.locat<-coordinates(data)
+    data <- as(data, "data.frame")
+  }
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
+  }
+  else
+  {
+    stop("Given regression data must be a Spatial*DataFrame or sf object")
+  }
   #####Regression points
   if (missing(regression.points))
   {
   	rp.given <- FALSE
     regression.points <- data
-    rp.locat<-coordinates(data)
+    rp.locat<-dp.locat
   }
   else
   {
     rp.given <- TRUE
-    if (is(regression.points, "Spatial"))
+    if (inherits(regression.points, "Spatial"))
     {
        rp.locat<-coordinates(regression.points)
+    }
+    else if (inherits(regression.points, "sf"))
+    {
+      if (any((st_geometry_type(regression.points)=="POLYGON")) | any(st_geometry_type(regression.points)=="MULTIPOLYGON"))
+         rp.locat <- st_coordinates(st_centroid(st_geometry(regression.points)))
+      else
+         rp.locat<- st_coordinates(st_centroid(st_geometry(regression.points)))
     }
     else if (is.numeric(regression.points) && dim(regression.points)[2] == 2)
        rp.locat<-regression.points
@@ -40,17 +64,6 @@ gwr.mixed <- function(formula, data, regression.points, fixed.vars,intercept.fix
         warning("Output loactions are not packed in a Spatial object,and it has to be a two-column numeric vector")
         rp.locat<-dp.locat
       }
-  }
-  ##Data points{
-  if (is(data, "Spatial"))
-  {
-    p4s <- proj4string(data)
-    dp.locat<-coordinates(data)
-    data <- as(data, "data.frame")
-  }
-  else
-  {
-    stop("Given regression data must be Spatial*DataFrame")
   }
     #########Distance matrix is given or not
   dp.n <- nrow(dp.locat)
@@ -128,7 +141,7 @@ gwr.mixed <- function(formula, data, regression.points, fixed.vars,intercept.fix
    colnames(mgwr.df) <- c(paste(colnames(x1), "L", sep="_"), paste(colnames(x2), "F", sep="_"))
    rownames(rp.locat)<-rownames(mgwr.df)
   griddedObj <- F
-     if (is(regression.points, "Spatial"))
+     if(inherits(regression.points, "Spatial")) 
      { 
          if (is(regression.points, "SpatialPolygonsDataFrame"))
          {
@@ -145,8 +158,12 @@ gwr.mixed <- function(formula, data, regression.points, fixed.vars,intercept.fix
             gridded(SDF) <- griddedObj 
          }
      }
+     else if(inherits(regression.points, "sf"))
+     {
+            SDF <- st_sf(mgwr.df, geometry = st_geometry(regression.points))
+     }
      else
-         SDF <- SpatialPointsDataFrame(coords=rp.locat, data=mgwr.df, proj4string=CRS(p4s), match.ID=F)
+            SDF <- SpatialPointsDataFrame(coords=rp.locat, data=mgwr.df, proj4string=CRS(p4s), match.ID=F)
  # 
 #   if (is(regression.points, "SpatialPolygonsDataFrame"))
 #    {

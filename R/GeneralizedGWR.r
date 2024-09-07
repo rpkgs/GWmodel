@@ -25,12 +25,26 @@ ggwr.basic<-function(formula, data, regression.points, bw, family ="poisson", ke
         hatmatrix<-F
     }
     ##Data points{
-    if (is(data, "Spatial"))
+    spdf <- FALSE
+  sf.poly <- FALSE
+  if(inherits(data, "Spatial"))
+     spdf <- TRUE
+  else if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+     sf.poly <- TRUE
+    if(inherits(data, "Spatial"))
     {
         p4s <- proj4string(data)
         dp.locat<-coordinates(data)
         data <- as(data, "data.frame")
     }
+    else if (inherits(data, "sf"))
+   {
+    p4s <- st_crs(data)$proj4string
+    if(sf.poly)
+      dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+      dp.locat <- st_coordinates(st_geometry(data))
+   }
     else
     {
         stop("Given regression data must be Spatial*DataFrame")
@@ -51,8 +65,15 @@ ggwr.basic<-function(formula, data, regression.points, bw, family ="poisson", ke
     x <- model.matrix(mt, mf)
     ############################################
     var.n<-ncol(x)
-    if(is(regression.points, "Spatial"))
+    if (inherits(regression.points, "Spatial"))
         rp.locat<-coordinates(regression.points)
+    else if (inherits(regression.points, "sf"))
+    {
+        if (any((st_geometry_type(regression.points)=="POLYGON")) | any(st_geometry_type(regression.points)=="MULTIPOLYGON"))
+         rp.locat <- st_coordinates(st_centroid(st_geometry(regression.points)))
+       else
+         rp.locat<- st_coordinates(st_centroid(st_geometry(regression.points)))
+    }
     else if(is.numeric(regression.points)&&dim(regression.points)[2]==2)
     {
         rp.locat <- regression.points
@@ -355,10 +376,20 @@ gwr.generalised<-function(formula, data, regression.points, bw, family ="poisson
 gwr.poisson<-function(y,x,regression.points,W1.mat,W2.mat,hatmatrix,tol=1.0e-5, maxiter=500)
 {
     p4s <- as.character(NA)
-    if (is(regression.points, "Spatial"))
+    if (inherits(regression.points, "Spatial"))
     {
       p4s <- proj4string(regression.points)
+      rp.locat<-coordinates(regression.points)
     }
+    else if (inherits(regression.points, "sf"))
+    {
+       if (any((st_geometry_type(regression.points)=="POLYGON")) | any(st_geometry_type(regression.points)=="MULTIPOLYGON"))
+         rp.locat <- st_coordinates(st_centroid(st_geometry(regression.points)))
+      else
+         rp.locat<- st_coordinates(st_centroid(st_geometry(regression.points))) 
+    }
+    else
+       rp.locat <- regression.points
     ############################################
     ##Generalized linear regression
     glms<-glm.fit(x, y, family = poisson()) 
@@ -371,11 +402,8 @@ gwr.poisson<-function(y,x,regression.points,W1.mat,W2.mat,hatmatrix,tol=1.0e-5, 
     ########change the aic
     glms$aic <- glm.dev + 2*var.n
     glms$aicc <- glm.dev + 2*var.n + 2*var.n*(var.n+1)/(dp.n-var.n-1)
-    ############################################
-    if(is(regression.points, "Spatial"))
-    	 rp.locat<-coordinates(regression.points)
-    else
-       rp.locat <- regression.points
+    ############################################ 
+    
     rp.n<-nrow(rp.locat)
     betas <- matrix(nrow=rp.n, ncol=var.n)
     betas1<- matrix(nrow=dp.n, ncol=var.n)
@@ -491,7 +519,7 @@ gwr.poisson<-function(y,x,regression.points,W1.mat,W2.mat,hatmatrix,tol=1.0e-5, 
     }
     rownames(rp.locat)<-rownames(gwres.df)
     griddedObj <- F
-    if (is(regression.points, "Spatial"))
+    if(inherits(regression.points, "Spatial"))
     { 
         if (is(regression.points, "SpatialPolygonsDataFrame"))
         {
@@ -508,6 +536,10 @@ gwr.poisson<-function(y,x,regression.points,W1.mat,W2.mat,hatmatrix,tol=1.0e-5, 
            gridded(SDF) <- griddedObj 
         }
     }
+    else if(inherits(regression.points, "sf"))
+    {
+     SDF <- st_sf(gwres.df, geometry = st_geometry(regression.points))
+    }
     else
         SDF <- SpatialPointsDataFrame(coords=rp.locat, data=gwres.df, proj4string=CRS(p4s), match.ID=F)
    ##############
@@ -522,10 +554,20 @@ gwr.poisson<-function(y,x,regression.points,W1.mat,W2.mat,hatmatrix,tol=1.0e-5, 
 gwr.binomial <- function(y,x,regression.points,W1.mat,W2.mat,hatmatrix,tol=1.0e-5, maxiter=20)
 {
     p4s <- as.character(NA)
-    if (is(regression.points, "Spatial"))
+    if (inherits(regression.points, "Spatial"))
     {
-        p4s <- proj4string(regression.points)
+      p4s <- proj4string(regression.points)
+      rp.locat<-coordinates(regression.points)
     }
+    else if (inherits(regression.points, "sf"))
+    {
+       if (any((st_geometry_type(regression.points)=="POLYGON")) | any(st_geometry_type(regression.points)=="MULTIPOLYGON"))
+         rp.locat <- st_coordinates(st_centroid(st_geometry(regression.points)))
+      else
+         rp.locat<- st_coordinates(st_centroid(st_geometry(regression.points))) 
+    }
+    else
+       rp.locat <- regression.points
 
     ############################################
     ##Generalized linear regression
@@ -539,7 +581,7 @@ gwr.binomial <- function(y,x,regression.points,W1.mat,W2.mat,hatmatrix,tol=1.0e-
     glms$aic <- glm.dev + 2*var.n
     glms$aicc <- glm.dev + 2*var.n + 2*var.n*(var.n+1)/(dp.n-var.n-1)
     ############################################
-    rp.locat<-coordinates(regression.points)
+    #rp.locat<-coordinates(regression.points)
     rp.n<-nrow(rp.locat)
     betas <-matrix(nrow=rp.n, ncol=var.n)
     betas1<- matrix(nrow=dp.n, ncol=var.n)
@@ -644,22 +686,26 @@ gwr.binomial <- function(y,x,regression.points,W1.mat,W2.mat,hatmatrix,tol=1.0e-
     rownames(rp.locat)<-rownames(gwres.df)
 
     griddedObj <- F
-    if (is(regression.points, "Spatial"))
-    {
+    if(inherits(regression.points, "Spatial"))
+    { 
         if (is(regression.points, "SpatialPolygonsDataFrame"))
         {
-            polygons<-polygons(regression.points)
-            #SpatialPolygons(regression.points)
-            #rownames(gwres.df) <- sapply(slot(polygons, "polygons"),
-            #  function(i) slot(i, "ID"))
-            SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=gwres.df,match.ID =F)
+           polygons<-polygons(regression.points)
+           #SpatialPolygons(regression.points)
+           #rownames(gwres.df) <- sapply(slot(polygons, "polygons"),
+                              #  function(i) slot(i, "ID"))
+           SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=gwres.df, match.ID=F)
         }
         else
         {
-            griddedObj <- gridded(regression.points)
-            SDF <- SpatialPointsDataFrame(coords=rp.locat, data=gwres.df, proj4string=CRS(p4s), match.ID=F)
-            gridded(SDF) <- griddedObj
+           griddedObj <- gridded(regression.points)
+           SDF <- SpatialPointsDataFrame(coords=rp.locat, data=gwres.df, proj4string=CRS(p4s), match.ID=F)
+           gridded(SDF) <- griddedObj 
         }
+    }
+    else if(inherits(regression.points, "sf"))
+    {
+     SDF <- st_sf(gwres.df, geometry = st_geometry(regression.points))
     }
     else
         SDF <- SpatialPointsDataFrame(coords=rp.locat, data=gwres.df, proj4string=CRS(p4s), match.ID=F)
@@ -729,7 +775,10 @@ print.ggwrm<-function(x, ...)
      } 
 	
 	cat("\n   ************Summary of Generalized GWR coefficient estimates:**********\n")      
-		df0 <- as(x$SDF, "data.frame")[,1:var.n, drop=FALSE]
+	if(inherits(x$SDF, "Spatial"))
+       df0 <- as(x$SDF, "data.frame")[,1:var.n, drop=FALSE]
+    else
+       df0 <- st_drop_geometry(x$SDF)[,1:var.n, drop=FALSE]
         if (any(is.na(df0))) {
             df0 <- na.omit(df0)
             warning("NAs in coefficients dropped")

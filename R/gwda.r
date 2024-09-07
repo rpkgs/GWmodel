@@ -13,10 +13,24 @@ gwda <- function(formula, data, predict.data,validation = T, COV.gw=T,
   p4s <- as.character(NA)
   ############################training data
   #data must be given as training data 
-  if (is(data, "Spatial")) {
+  spdf <- FALSE
+  sf.poly <- FALSE
+  if(inherits(data, "Spatial"))
+     spdf <- TRUE
+  else if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+     sf.poly <- TRUE
+  if(inherits(data, "Spatial")) {
     p4s <- proj4string(data)
     dp.locat <- coordinates(data)
   }
+   else if (inherits(data, "sf"))
+   {
+    p4s <- st_crs(data)$proj4string
+    if(sf.poly)
+      dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+      dp.locat <- st_coordinates(st_geometry(data))
+   }
   else
      stop("Given training data must be a Spatial*DataFrame or data.frame object")
   
@@ -28,20 +42,33 @@ gwda <- function(formula, data, predict.data,validation = T, COV.gw=T,
      cv.predict <- T
      pr.locat <- dp.locat
      predict.data <- data
-     pr.data <- as(predict.data, "data.frame")
+    if(inherits(pr.data, "Spatial"))
+       pr.data <- as(predict.data, "data.frame")
+    else
+       pr.data <- st_drop_geometry(predict.data)
   }
   else
   {
      cv.predict <- F
-     if (is(predict.data, "Spatial")) 
+     if (inherits(predict.data, "Spatial")) 
      {
         pr.locat <- coordinates(predict.data)
         pr.data <- as(predict.data, "data.frame")
      }
+     else if(inherits(predict.data, "sf"))
+     {
+        if(any((st_geometry_type(predict.data)=="POLYGON")) | any(st_geometry_type(predict.data)=="MULTIPOLYGON"))
+           dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+        else
+           dp.locat <- st_coordinates(st_geometry(data)) 
+     }
      else
          stop("Prediction data must be a Spatial*DataFrame or data.frame object")
   }
-  data <- as(data, "data.frame")
+  if(spdf)
+     data <- as(data, "data.frame")
+  else
+     data <- st_drop_geometry(data)
   ##########################validation data
   ##As default, the training data will be also used as validation data
 #  if (is(validat.data, "Spatial")) {
@@ -142,7 +169,7 @@ gwda <- function(formula, data, predict.data,validation = T, COV.gw=T,
     #######################################
   
     griddedObj <- F
-    if (is(predict.data, "Spatial"))
+    if (inherits(predict.data, "Spatial"))
     { 
         if (is(predict.data, "SpatialPolygonsDataFrame"))
         {
@@ -157,6 +184,10 @@ gwda <- function(formula, data, predict.data,validation = T, COV.gw=T,
                                      proj4string = CRS(p4s), match.ID=F)
            gridded(SDF) <- griddedObj 
         }
+    }
+    else if(inherits(predict.data, "sf"))
+    {
+     SDF <- st_sf(res.df, geometry = st_geometry(predict.data))
     }
     else
         SDF <- SpatialPointsDataFrame(coords = pr.locat, data = res.df, 

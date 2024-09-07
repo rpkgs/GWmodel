@@ -32,7 +32,7 @@ gwr.bootstrap(formula, data, kernel = "bisquare", approach = "AIC",
 
 \arguments{
   \item{formula}{Regression model formula of a \link{formula} object }
-  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}}
+  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}, or a sf object defined in package \pkg{sf}}
   \item{kernel}{function chosen as follows:
   
                 gaussian: wgt = exp(-.5*(vdist/bw)^2);
@@ -71,8 +71,9 @@ gwr.bootstrap(formula, data, kernel = "bisquare", approach = "AIC",
 A list of class \dQuote{gwrbsm}:
   \item{formula}{Regression model formula of a \link{formula} object }
   \item{results}{modified statistics reported from comparisons between GWR and MLR, ERR, SMA and LAG}
-  \item{SDF}{a SpatialPointsDataFrame (may be gridded) or SpatialPolygonsDataFrame object
-        (see package \dQuote{sp}) integrated with fit.points,GWR coefficient estimates, y
+  \item{SDF}{a SpatialPointsDataFrame (may be gridded), or 
+             SpatialPolygonsDataFrame object (see package \dQuote{sp}), or sf object  (see package \dQuote{sf}) integrated with 
+             regression.points, GWR coefficient estimates, y
 value,predicted values, coefficient standard errors and bootstrap p-values in its \dQuote{data} slot.}
   \item{timings}{starting and ending time.}
   \item{this.call}{the function call used.}

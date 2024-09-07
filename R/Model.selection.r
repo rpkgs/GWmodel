@@ -8,13 +8,21 @@ gwr.model.selection<-function(DeVar=NULL,InDeVars=NULL, data=list(),bw=NULL,appr
    ##Data points
   spdf <- data
   if (!is.null(data)) {
-    if (is(data, "Spatial")) {
+    if (inherits(data, "Spatial")) {
       p4s <- proj4string(data)
       dp.locat <- coordinates(data)
       data <- as(data, "data.frame")
-    } else {
+    }
+    if (inherits(data, "sf"))
+    {
+      if (any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+         dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+      else
+         dp.locat<- st_coordinates(st_centroid(st_geometry(data)))
+    }  
+    else {
       if (!is(data, "data.frame"))
-        stop("Given regression data must be data.frame or Spatial*DataFrame")
+        stop("Given regression data must be a sf data.frame or Spatial*DataFrame")
     }
   }
   else stop("No regression data frame is avaiable!")

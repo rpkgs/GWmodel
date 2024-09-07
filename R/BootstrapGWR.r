@@ -15,26 +15,50 @@ gwr.bootstrap <- function(formula, data, kernel="bisquare",approach="AIC", R=99,
   ######data points
   ###Create the adjency matrix for calculating the ERR, SMA and LAG model
   polygons <- NULL
-  if (is(data, "SpatialPolygonsDataFrame"))
+  if(inherits(data, "Spatial"))
   {
-     polygons <- polygons(data)
-	 dp.locat <- coordinates(data)
+	if (inherits(data, "SpatialPolygonsDataFrame"))
+  	{
+   	  polygons <- polygons(data)
+     dp.locat <- coordinates(data)
 	 gnb <- poly2nb(polygons)
 	 glw <- nb2listw(gnb)
 	 W.adj <- listw2mat(glw) 
-  }    
-  else if(is(data, "SpatialPointsDataFrame"))
-  {
-    dp.locat <- coordinates(data)
-	gnb <- knn2nb(knearneigh(dp.locat, k=k.nearneigh), sym = T)
-	glw <- nb2listw(gnb)
-	W.adj <- listw2mat(glw) 
+    }    
+    else if(inherits(data, "SpatialPointsDataFrame"))
+    {
+      dp.locat <- coordinates(data)
+	  gnb <- knn2nb(knearneigh(dp.locat, k=k.nearneigh), sym = T)
+	  glw <- nb2listw(gnb)
+	  W.adj <- listw2mat(glw) 
 	#griddedObj <- gridded(dp.locat)
+    }
+	sp.data <- data
+    data <- as(data, "data.frame")
+  }
+  else if(inherits(data, "sf"))
+  {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+	{
+     dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+	 gnb <- poly2nb(data)
+	 glw <- nb2listw(gnb)
+	 W.adj <- listw2mat(glw) 
+	}
+	else
+	{
+	  dp.locat <- st_coordinates(st_geometry(data))
+	  gnb <- knn2nb(knearneigh(dp.locat, k=k.nearneigh), sym = T)
+	  glw <- nb2listw(gnb)
+	  W.adj <- listw2mat(glw) 
+	}
+	sp.data <- data
+	data <- st_drop_geometry(data)
   }
   else
     stop("Given regression data must be Spatial*DataFrame")
-  sp.data <- data
-  data <- as(data, "data.frame")
+
+  
   ####################################################GWR
 	  #########Distance matrix is given or not
   dp.n <- nrow(dp.locat)

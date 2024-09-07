@@ -9,11 +9,19 @@ gwr.scalable <- function(formula, data, bw.adapt=100, kernel = "gaussian", polyn
   # # Check the given data frame and regression points
   hatmatrix<-T
   # ## Data points
-  if (is(data, "Spatial")) {
+
+  if (inherits(data, "Spatial")) {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
     data <- as(data, "data.frame")
-  } else {
+  }
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
+  }
+  else {
     stop("Given regression data must be Spatial*DataFrame")
   }
   
@@ -187,11 +195,15 @@ gwr.scalable <- function(formula, data, bw.adapt=100, kernel = "gaussian", polyn
                             paste(colnames(betas), "SE", sep = "_")),
                           paste(colnames(betas), "TV", sep = "_"))
   # ## SDF
-  if (is(data, "SpatialPolygonsDataFrame")) {
+  if (inherits(data, "SpatialPolygonsDataFrame")) {
     polygons <- polygons(data)
     rownames(gwres.df) <- sapply(slot(polygons, "polygons"), function (i) slot(i, "ID"))
     SDF <- SpatialPolygonsDataFrame(Sr = polygons, data = gwres.df, match.ID = F)
-  } else {
+  }
+  else if (inherits(data, "sf")) {
+    SDF <- st_sf(gwres.df, geometry = st_geometry(data))
+  }
+  else {
     SDF <- SpatialPointsDataFrame(coords=dp.locat, data=gwres.df, proj4string = CRS(p4s), match.ID = F)
   }
   timings[["stop"]] <- Sys.time()
@@ -317,7 +329,10 @@ print.scgwrm <- function(x, ...)
   } 
   
   cat("\n   ****************Summary of GWR coefficient estimates:******************\n")       
-  df0 <- as(x$SDF, "data.frame")[,1:var.n, drop=FALSE]
+  if(inherits(x$SDF, "Spatial"))
+       df0 <- as(x$SDF, "data.frame")[,1:var.n, drop=FALSE]
+    else
+       df0 <- st_drop_geometry(x$SDF)[,1:var.n, drop=FALSE]
   if (any(is.na(df0))) {
     df0 <- na.omit(df0)
     warning("NAs in coefficients dropped")

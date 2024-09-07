@@ -20,12 +20,19 @@ gwr.multiscale <- function(formula, data, kernel="bisquare", adaptive=FALSE, cri
   this.call <- match.call()
   p4s <- as.character(NA)
   ##Data points{
-  if (is(data, "Spatial"))
+  if (inherits(data, "Spatial"))
   {
     p4s <- proj4string(data)
     dp.locat<-coordinates(data)
     regression.points <- data
     data <- as(data, "data.frame")
+  }
+  else if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
+    regression.points <- data
   }
   else
   {
@@ -459,7 +466,7 @@ gwr.multiscale <- function(formula, data, kernel="bisquare", adaptive=FALSE, cri
     colnames(vdgwr.df) <- c(colnames(x), "yhat", "residual")
   }
   griddedObj <- F
-  if (is(regression.points, "Spatial"))
+  if(inherits(regression.points, "Spatial")) 
   { 
     if (is(regression.points, "SpatialPolygonsDataFrame"))
     {
@@ -475,6 +482,10 @@ gwr.multiscale <- function(formula, data, kernel="bisquare", adaptive=FALSE, cri
       SDF <- SpatialPointsDataFrame(coords=dp.locat, data=vdgwr.df, proj4string=CRS(p4s), match.ID=F)
       gridded(SDF) <- griddedObj 
     }
+  }
+  else if(inherits(regression.points, "sf"))
+  {
+     SDF <- st_sf(vdgwr.df, geometry = st_geometry(regression.points))
   }
   else
     SDF <- SpatialPointsDataFrame(coords=dp.locat, data=vdgwr.df, proj4string=CRS(p4s), match.ID=F)  
@@ -521,8 +532,11 @@ print.multiscalegwr<-function(x, ...)
   rownames(bws) <- c("   Bandwidth ")
   colnames(bws) <- names(x$lm$coefficients)
   printCoefmat(bws)
-	cat("\n   ****************Summary of GWR coefficient estimates:******************\n")       
-		df0 <- as(x$SDF, "data.frame")[,1:var.n, drop=FALSE]
+	cat("\n   *************Summary of multiscale GWR coefficient estimates:***************\n")       
+		if(inherits(x$SDF, "Spatial"))
+       df0 <- as(x$SDF, "data.frame")[,1:var.n, drop=FALSE]
+    else
+       df0 <- st_drop_geometry(x$SDF)[,1:var.n, drop=FALSE]
         if (any(is.na(df0))) {
             df0 <- na.omit(df0)
             warning("NAs in coefficients dropped")

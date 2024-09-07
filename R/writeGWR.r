@@ -17,7 +17,10 @@ gwr.write.shp<-function(x,fn="GWRresults")
 {
    if(!inherits(x, "gwrm")) stop("It's not a gwm object")
    SDF<-x$SDF
-   st_write(st_as_sf(SDF), paste(fn, ".shp",sep=""),driver = "ESRI Shapefile",delete_dsn =T)
+   if(inherits(SDF, "Spatial"))
+      st_write(st_as_sf(SDF), paste(fn, ".shp",sep=""),driver = "ESRI Shapefile",delete_dsn =T)
+   else
+       st_write(SDF, paste(fn, ".shp",sep=""),driver = "ESRI Shapefile",delete_dsn =T)
    invisible(SDF)
 }
 
@@ -40,6 +43,9 @@ writeGWR.shp<-function(x,fn="GWRresults")
 {
    if(!inherits(x, "gwrm")) stop("It's not a gwm object")
    SDF<-x$SDF
-   st_write(st_as_sf(SDF), paste(fn, ".shp",sep=""),driver = "ESRI Shapefile",delete_dsn =T)
+   if(inherits(SDF, "Spatial"))
+      st_write(st_as_sf(SDF), paste(fn, ".shp",sep=""),driver = "ESRI Shapefile",delete_dsn =T)
+   else
+       st_write(SDF, paste(fn, ".shp",sep=""),driver = "ESRI Shapefile",delete_dsn =T)
    invisible(SDF)
 }

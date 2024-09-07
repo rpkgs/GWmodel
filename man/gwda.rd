@@ -23,7 +23,7 @@ gwda(formula, data, predict.data,validation = T, COV.gw=T,
 
 \arguments{
   \item{formula}{Model formula of a \link{formula} object }
-  \item{data}{a Spatial*DataFrame for training, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}}
+  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}, or a sf object defined in package \pkg{sf}}
   \item{predict.data}{a Spatial*DataFrame object for prediction, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as 
   defined in package \pkg{sp}; if it is not given, the traing data will be predicted using leave-one-out cross-validation.}
   \item{validation }{If TRUE, the results from the prediction will be validated and the correct proportion will be calculated.}
@@ -54,7 +54,7 @@ gwda(formula, data, predict.data,validation = T, COV.gw=T,
 }
 \value{
 An object of class \dQuote{gwda}. This includes a SpatialPointsDataFrame (may be gridded) or 
-SpatialPolygonsDataFrame object, SDF, (see package \dQuote{sp}) with, following the use of new version of \link{gwda}, the probabilities for
+SpatialPolygonsDataFrame object, SDF, (see package \dQuote{sp}) or sf object  (see package \dQuote{sf}) with, following the use of new version of \link{gwda}, the probabilities for
 each level, the highest probabiliity and the entropy of the probabilities in its \dQuote{data} slot.
 }
 

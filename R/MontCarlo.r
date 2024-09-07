@@ -9,17 +9,24 @@ gwr.montecarlo<-function(formula, data = list(),nsims=99, kernel="bisquare",adap
   this.call <- match.call() 
   if (!is.null(data))
   {
-    if (is(data, "Spatial"))
+    if (inherits(data, "Spatial"))
     {
        dp.locat <- coordinates(data)
        data <- as(data, "data.frame")
-       dp.n<-nrow(dp.locat)
+       
+    }
+    if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
     }
     else
     {
       if (!is(data, "data.frame"))
          stop("Given regression data must be data.frame or Spatial*DataFrame")
     }
+    dp.n<-nrow(dp.locat)
   }
   else stop("No regression data frame is avaiable!")
    
@@ -126,17 +133,24 @@ montecarlo.gwr <-function(formula, data = list(),nsims=99, kernel="bisquare",ada
   this.call <- match.call() 
   if (!is.null(data))
   {
-    if (is(data, "Spatial"))
+     if (inherits(data, "Spatial"))
     {
        dp.locat <- coordinates(data)
        data <- as(data, "data.frame")
-       dp.n<-nrow(dp.locat)
+       
+    }
+    if(inherits(data, "sf")) {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+       dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+       dp.locat <- st_coordinates(st_geometry(data))
     }
     else
     {
       if (!is(data, "data.frame"))
          stop("Given regression data must be data.frame or Spatial*DataFrame")
     }
+    dp.n<-nrow(dp.locat)
   }
   else stop("No regression data frame is avaiable!")
    

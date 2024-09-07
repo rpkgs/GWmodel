@@ -5,10 +5,20 @@ bw.gtwr<-function(formula, data, obs.tv, approach="CV",kernel="bisquare",adaptiv
                   longlat=F,lamda=0.05,t.units = "auto",ksi=0, st.dMat,verbose=T)
 {
     ##Data points{
-  if (is(data, "Spatial"))
+   if(inherits(data, "Spatial"))
   {
-    dp.locat<-coordinates(data)
-    data <- as(data, "data.frame")
+    if (is(data, "Spatial"))
+    {
+     dp.locat<-coordinates(data)
+     data <- as(data, "data.frame")
+    }
+  }
+  else if(inherits(data, "sf"))
+  {
+    if(any((st_geometry_type(data)=="POLYGON")) | any(st_geometry_type(data)=="MULTIPOLYGON"))
+      dp.locat <- st_coordinates(st_centroid(st_geometry(data)))
+    else
+      dp.locat <- st_coordinates(st_geometry(data))
   }
   else
   {

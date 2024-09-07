@@ -10,7 +10,7 @@ bw.gwpca(data,vars,k=2, robust=FALSE, scaling=T, kernel="bisquare",adaptive=FALS
 }
 
 \arguments{
-  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}}
+  \item{data}{a Spatial*DataFrame, i.e. SpatialPointsDataFrame or SpatialPolygonsDataFrame as defined in package \pkg{sp}, or a sf object defined in package \pkg{sf}}
   \item{vars}{a vector of variable names to be evaluated}
   \item{k}{the number of retained components, and it must be less than the number of variables}
   \item{robust}{if TRUE, robust GWPCA will be applied; otherwise basic GWPCA will be applied}
