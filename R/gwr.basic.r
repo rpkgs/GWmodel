@@ -126,13 +126,15 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
   mt <- attr(mf, "terms")
   y <- model.extract(mf, "response")
   x <- model.matrix(mt, mf)
-  var.n <- ncol(x)
-  rp.n <- nrow(rp.locat)
-  dp.n <- nrow(data)
-  betas <- matrix(0, nrow = rp.n, ncol = var.n)
+  p_local <- ncol(x)
+  
+  n_target <- nrow(rp.locat)
+  n_control <- nrow(data)
+
+  betas <- matrix(0, nrow = n_target, ncol = p_local)
   if (hatmatrix) {
-    betas.SE <- matrix(0, nrow = rp.n, ncol = var.n)
-    betas.TV <- matrix(0, nrow = rp.n, ncol = var.n)
+    betas.SE <- matrix(0, nrow = n_target, ncol = p_local)
+    betas.TV <- matrix(0, nrow = n_target, ncol = p_local)
   }
   idx1 <- match("(Intercept)", colnames(x))
   if (!is.na(idx1)) {
@@ -147,7 +149,7 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
   # lms <-fastLm(formula,data=data)
   lms$x <- x
   lms$y <- y
-  gTSS <- c(cov.wt(matrix(y, ncol = 1), wt = rep(as.numeric(1), dp.n), method = "ML")$cov * dp.n)
+  gTSS <- c(cov.wt(matrix(y, ncol = 1), wt = rep(as.numeric(1), n_control), method = "ML")$cov * n_control)
 
   #################################################### GWR
   ######### Distance matrix is given or not
@@ -155,7 +157,7 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
   if (missing(dMat)) {
     DM.given <- F
     DM1.given <- F
-    if (dp.n + rp.n <= 5000)
+    if (n_control + n_target <= 5000)
       {
         dMat <- gw.dist(dp.locat = dp.locat, rp.locat = rp.locat, p = p, theta = theta, longlat = longlat)
         DM.given <- T
@@ -166,15 +168,15 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
     DM.given <- T
     DM1.given <- T
     dim.dMat <- dim(dMat)
-    if (dim.dMat[1] != dp.n || dim.dMat[2] != rp.n) {
+    if (dim.dMat[1] != n_control || dim.dMat[2] != n_target) {
       stop("Dimensions of dMat are not correct")
     }
   }
   ############# Calibration the model
   timings[["calibration"]] <- Sys.time()
-  # W <- matrix(nrow = dp.n, ncol = rp.n)
+  # W <- matrix(nrow = dp.n, ncol = n_target)
   s_hat <- c(0.0, 0.0)
-  q.diag <- matrix(0, 1, dp.n)
+  q.diag <- matrix(0, 1, n_control)
   ## No parallel method applied
   if (parallel.method == F) {
     reg.result <- gw_reg_all(x, y, dp.locat, rp.given, rp.locat, DM.given, dMat, hatmatrix, p, theta, longlat, bw, kernel, adaptive)
@@ -221,13 +223,18 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
     } else {
       parallel.arg.n <- length(parallel.arg)
     }
+
     clusterCall(parallel.arg, function() {
       library(GWmodel)
     })
-    parallel.arg.results <- clusterApplyLB(parallel.arg, 1:parallel.arg.n, function(group.i, parallel.arg.n, x, y, dp.locat, rp.given, rp.locat, DM.given, dMat, hatmatrix, p, theta, longlat, bw, kernel, adaptive) {
-      reg.result <- gw_reg_all(x, y, dp.locat, rp.given, rp.locat, DM.given, dMat, hatmatrix, p, theta, longlat, bw, kernel, adaptive, parallel.arg.n, group.i)
-      return(reg.result)
-    }, parallel.arg.n, x, y, dp.locat, rp.given, rp.locat, DM.given, dMat, hatmatrix, p, theta, longlat, bw, kernel, adaptive)
+
+    parallel.arg.results <- clusterApplyLB(
+      parallel.arg, 1:parallel.arg.n,
+      function(group.i, parallel.arg.n, x, y, dp.locat, rp.given, rp.locat, DM.given, dMat, hatmatrix, p, theta, longlat, bw, kernel, adaptive) {
+        reg.result <- gw_reg_all(x, y, dp.locat, rp.given, rp.locat, DM.given, dMat, hatmatrix, p, theta, longlat, bw, kernel, adaptive, parallel.arg.n, group.i)
+        return(reg.result)
+      }, parallel.arg.n, x, y, dp.locat, rp.given, rp.locat, DM.given, dMat, hatmatrix, p, theta, longlat, bw, kernel, adaptive
+    )
     for (i in 1:parallel.arg.n) {
       reg.result <- parallel.arg.results[[i]]
       betas <- betas + reg.result$betas
@@ -241,7 +248,8 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
       stopCluster(parallel.arg)
     }
   } else {
-    for (i in 1:rp.n) {
+
+    for (i in 1:n_target) { # n_target
       if (DM.given) {
         dist.vi <- dMat[, i]
       } else {
@@ -251,17 +259,21 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
           dist.vi <- gw.dist(dp.locat = dp.locat, focus = i, p = p, theta = theta, longlat = longlat)
         }
       }
+
       W.i <- gw.weight(dist.vi, bw, kernel, adaptive)
       if (!is.null(W.vect)) W.i <- W.i * W.vect
+
       gwsi <- gw_reg(x, y, W.i, hatmatrix, i)
       betas[i, ] <- gwsi[[1]] ###### See function by IG
-      if (hatmatrix) {
+      
+      if (hatmatrix) { # TODO
         si <- gwsi[[2]]
         Ci <- gwsi[[3]]
-        betas.SE[i, ] <- rowSums(Ci * Ci)
+        betas.SE[i, ] <- rowSums(Ci * Ci) # why?
+
         s_hat[1] <- s_hat[1] + si[i]
         s_hat[2] <- s_hat[2] + sum(si %*% t(si))
-        onei <- numeric(rp.n)
+        onei <- numeric(n_target)
         onei[i] <- 1
         p_i <- onei - si
         q.diag <- q.diag + p_i * p_i
@@ -272,15 +284,19 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
   timings[["diagnostic"]] <- Sys.time()
   GW.diagnostic <- NA
   Ftests <- list()
+
   if (hatmatrix) {
-    diags <- gwr_diag1(y, x, betas, as.vector(s_hat))
+    diags <- gwr_diag1(y, x, betas, as.vector(s_hat)) # TODO
     tr.S <- s_hat[1]
     tr.StS <- s_hat[2]
     RSS.gw <- diags[5]
+
     yhat <- gw_fitted(x, betas)
     residual <- y - yhat
-    CV <- numeric(dp.n)
-    local.R2 <- numeric(dp.n)
+    
+    CV <- numeric(n_control)
+    local.R2 <- numeric(n_control)
+    
     if (cv) {
       CV <- gwr.cv.contrib(bw, x, y, kernel, adaptive, dp.locat, p, theta, longlat, dMat)
     }
@@ -289,7 +305,7 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
     # sigma.hat1=RSS/(n-2trace(S) + trace(S'S):Effective degrees of freedom
     ##### Calculate the standard errors of the parameter estimates
     # pseudo-t values
-    sigma.hat1 <- RSS.gw / (dp.n - 2 * tr.S + tr.StS)
+    sigma.hat1 <- RSS.gw / (n_control - 2 * tr.S + tr.StS)
     Stud_residual <- residual / sqrt(sigma.hat1 * as.vector(q.diag))
     betas.SE <- sqrt(sigma.hat1 * betas.SE)
     betas.TV <- betas / betas.SE
@@ -317,8 +333,8 @@ gwr.basic <- function(formula, data, regression.points, bw, kernel = "bisquare",
     Ftests <- list()
     if (F123.test) {
       F.test.parameters <- list(
-        dp.n = dp.n,
-        var.n = var.n,
+        dp.n = n_control,
+        var.n = p_local,
         dMat = dMat,
         dp.locat = dp.locat,
         x = x,
@@ -553,101 +569,99 @@ print.gwrm <- function(x, ...) {
 ####################################### Re-organised the output of lm function
 #### Edited print the lm results
 ## Editor: BL
-print.summary.lm <-
-  function(x, digits = max(3, getOption("digits") - 3),
-           symbolic.cor = x$symbolic.cor,
-           signif.stars = getOption("show.signif.stars"), ...)
-  {
-    cat(
-      "\n   Call:\n", # S has ' ' instead of '\n'
-      paste("   ", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
-    )
-    resid <- x$residuals
-    df <- x$df
-    rdf <- df[2L]
-    cat(if (!is.null(x$w) && diff(range(x$w))) "Weighted ",
-      "   Residuals:\n",
-      sep = ""
-    )
-    if (rdf > 5L) {
-      nam <- c("Min", "1Q", "Median", "3Q", "Max")
-      rq <- if (length(dim(resid)) == 2L) {
-        structure(apply(t(resid), 1L, quantile),
-          dimnames = list(nam, dimnames(resid)[[2L]])
-        )
-      } else {
-        zz <- zapsmall(quantile(resid), digits + 1)
-        structure(zz, names = nam)
-      }
-      print(rq, digits = digits, ...)
-    } else if (rdf > 0L) {
-      print(resid, digits = digits, ...)
-    } else { # rdf == 0 : perfect fit!
-      cat("   ALL", df[1L], "residuals are 0: no residual degrees of freedom!\n")
-    }
-    if (length(x$aliased) == 0L) {
-      cat("\n   No Coefficients\n")
-    } else {
-      if (nsingular <- df[3L] - df[1L]) {
-        cat("\n   Coefficients: (", nsingular,
-          " not defined because of singularities)\n",
-          sep = ""
-        )
-      } else {
-        cat("\n   Coefficients:\n")
-      }
-      coefs <- x$coefficients
-      if (!is.null(aliased <- x$aliased) && any(aliased)) {
-        cn <- names(aliased)
-        coefs <- matrix(NA, length(aliased), 4, dimnames = list(cn, colnames(coefs)))
-        coefs[!aliased, ] <- x$coefficients
-      }
-      rnames <- rownames(coefs)
-      for (i in 1:length(rnames)) {
-        rnames[i] <- paste("   ", rnames[i], sep = "")
-      }
-      rownames(coefs) <- rnames
-      printCoefmat(coefs, digits = digits, signif.stars = signif.stars, na.print = "NA", signif.legend = F)
-      cat("\n   ---Significance stars")
-      cat("\n   Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 ")
-    }
-    ##
-    cat(
-      "\n   Residual standard error:",
-      format(signif(x$sigma, digits)), "on", rdf, "degrees of freedom\n"
-    )
-    if (nzchar(mess <- naprint(x$na.action))) cat("  (", mess, ")\n", sep = "")
-    if (!is.null(x$fstatistic)) {
-      cat("   Multiple R-squared:", formatC(x$r.squared, digits = digits))
-      cat(
-        "\n   Adjusted R-squared:", formatC(x$adj.r.squared, digits = digits),
-        "\n   F-statistic:", formatC(x$fstatistic[1L], digits = digits),
-        "on", x$fstatistic[2L], "and",
-        x$fstatistic[3L], "DF,  p-value:",
-        format.pval(pf(x$fstatistic[1L], x$fstatistic[2L],
-          x$fstatistic[3L],
-          lower.tail = FALSE
-        ), digits = digits),
-        "\n"
+print.summary.lm <- function(x, digits = max(3, getOption("digits") - 3),
+                             symbolic.cor = x$symbolic.cor,
+                             signif.stars = getOption("show.signif.stars"), ...) {
+  cat(
+    "\n   Call:\n", # S has ' ' instead of '\n'
+    paste("   ", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
+  )
+  resid <- x$residuals
+  df <- x$df
+  rdf <- df[2L]
+  cat(if (!is.null(x$w) && diff(range(x$w))) "Weighted ",
+    "   Residuals:\n",
+    sep = ""
+  )
+  if (rdf > 5L) {
+    nam <- c("Min", "1Q", "Median", "3Q", "Max")
+    rq <- if (length(dim(resid)) == 2L) {
+      structure(apply(t(resid), 1L, quantile),
+        dimnames = list(nam, dimnames(resid)[[2L]])
       )
+    } else {
+      zz <- zapsmall(quantile(resid), digits + 1)
+      structure(zz, names = nam)
     }
-    correl <- x$correlation
-    if (!is.null(correl)) {
-      p <- NCOL(correl)
-      if (p > 1L) {
-        cat("\n   Correlation of Coefficients:\n")
-        if (is.logical(symbolic.cor) && symbolic.cor) { # NULL < 1.7.0 objects
-          print(symnum(correl, abbr.colnames = NULL))
-        } else {
-          correl <- format(round(correl, 2), nsmall = 2, digits = digits)
-          correl[!lower.tri(correl)] <- ""
-          print(correl[-1, -p, drop = FALSE], quote = FALSE)
-        }
+    print(rq, digits = digits, ...)
+  } else if (rdf > 0L) {
+    print(resid, digits = digits, ...)
+  } else { # rdf == 0 : perfect fit!
+    cat("   ALL", df[1L], "residuals are 0: no residual degrees of freedom!\n")
+  }
+  if (length(x$aliased) == 0L) {
+    cat("\n   No Coefficients\n")
+  } else {
+    if (nsingular <- df[3L] - df[1L]) {
+      cat("\n   Coefficients: (", nsingular,
+        " not defined because of singularities)\n",
+        sep = ""
+      )
+    } else {
+      cat("\n   Coefficients:\n")
+    }
+    coefs <- x$coefficients
+    if (!is.null(aliased <- x$aliased) && any(aliased)) {
+      cn <- names(aliased)
+      coefs <- matrix(NA, length(aliased), 4, dimnames = list(cn, colnames(coefs)))
+      coefs[!aliased, ] <- x$coefficients
+    }
+    rnames <- rownames(coefs)
+    for (i in 1:length(rnames)) {
+      rnames[i] <- paste("   ", rnames[i], sep = "")
+    }
+    rownames(coefs) <- rnames
+    printCoefmat(coefs, digits = digits, signif.stars = signif.stars, na.print = "NA", signif.legend = F)
+    cat("\n   ---Significance stars")
+    cat("\n   Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 ")
+  }
+  ##
+  cat(
+    "\n   Residual standard error:",
+    format(signif(x$sigma, digits)), "on", rdf, "degrees of freedom\n"
+  )
+  if (nzchar(mess <- naprint(x$na.action))) cat("  (", mess, ")\n", sep = "")
+  if (!is.null(x$fstatistic)) {
+    cat("   Multiple R-squared:", formatC(x$r.squared, digits = digits))
+    cat(
+      "\n   Adjusted R-squared:", formatC(x$adj.r.squared, digits = digits),
+      "\n   F-statistic:", formatC(x$fstatistic[1L], digits = digits),
+      "on", x$fstatistic[2L], "and",
+      x$fstatistic[3L], "DF,  p-value:",
+      format.pval(pf(x$fstatistic[1L], x$fstatistic[2L],
+        x$fstatistic[3L],
+        lower.tail = FALSE
+      ), digits = digits),
+      "\n"
+    )
+  }
+  correl <- x$correlation
+  if (!is.null(correl)) {
+    p <- NCOL(correl)
+    if (p > 1L) {
+      cat("\n   Correlation of Coefficients:\n")
+      if (is.logical(symbolic.cor) && symbolic.cor) { # NULL < 1.7.0 objects
+        print(symnum(correl, abbr.colnames = NULL))
+      } else {
+        correl <- format(round(correl, 2), nsmall = 2, digits = digits)
+        correl[!lower.tri(correl)] <- ""
+        print(correl[-1, -p, drop = FALSE], quote = FALSE)
       }
     }
-    # cat("\n")#- not in S
-    invisible(x)
   }
+  # cat("\n")#- not in S
+  invisible(x)
+}
 
 ### Do the F tests for a cablibrated GWR model
 F1234.test <- function(F.test.parameters = list()) {
@@ -782,7 +796,6 @@ F1234.test <- function(F.test.parameters = list()) {
 }
 
 # Randomisation tests for GWR parameters
-
 test.gwr.par <- function(
     formula, data, regression.points, bw, kernel = "bisquare",
     adaptive = FALSE, p = 2, theta = 0, longlat = F, dMat, W.vect = NULL, nperm = 999)
@@ -824,11 +837,11 @@ test.gwr.par <- function(
   x <- model.matrix(mt, mf)
   var.n <- ncol(x)
   rp.locat <- coordinates(regression.points)
-  rp.n <- nrow(rp.locat)
+  n_target <- nrow(rp.locat)
   dp.n <- nrow(data)
-  betas <- matrix(nrow = rp.n, ncol = var.n)
-  betas.SE <- matrix(nrow = rp.n, ncol = var.n)
-  betas.TV <- matrix(nrow = rp.n, ncol = var.n)
+  betas <- matrix(nrow = n_target, ncol = var.n)
+  betas.SE <- matrix(nrow = n_target, ncol = var.n)
+  betas.TV <- matrix(nrow = n_target, ncol = var.n)
   S <- matrix(nrow = dp.n, ncol = dp.n)
   colnames(betas) <- colnames(x)
   colnames(betas)[1] <- "Intercept"
@@ -844,13 +857,13 @@ test.gwr.par <- function(
   } else {
     DM.given <- T
     dim.dMat <- dim(dMat)
-    if (dim.dMat[1] != dp.n || dim.dMat[2] != rp.n) {
+    if (dim.dMat[1] != dp.n || dim.dMat[2] != n_target) {
       stop("Dimensions of dMat are not correct")
     }
   }
 
   beta.i <- array(dim = c(dp.n, 2, nperm + 1))
-  for (i in 1:rp.n) {
+  for (i in 1:n_target) {
     if (DM.given) {
       dist.vi <- dMat[, i]
     } else {
@@ -869,8 +882,7 @@ test.gwr.par <- function(
     bbeta <- gwsi[[1]]
     beta.i[i, , 1] <- bbeta
     ###
-    for (perm in 1:nperm)
-    {
+    for (perm in 1:nperm) {
       a <- sample(seq(1, dp.n))
       xx <- x[a, ]
       yy <- y[a]
